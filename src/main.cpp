@@ -322,7 +322,22 @@ void loop() {
   dtostrf(ina_vbus, 4, 2, buffer14);  //format to [xx.xx](V)
   ina_vbusS = String(buffer14);
 
-  delay(100); //delay for 10Hz update rate
+  //send data string to servo ESP32
+  ServoSerial.println("SENSOUT," + tof_front_dmmS + "," + tof_back_dmmS + "," + hc_left_dmmS + "," +hc_right_dmmS + "," + hc_frontLeft_dmmS + 
+                      "," + hc_frontRight_dmmS + "," + hc_frontDown_dmmS + "," + icm_pitchS + "," + icm_rollS + "," + icm_magXS + "," + 
+                      icm_magYS + "," + icm_magZS + "," + icm_tempS + "," + ina_vbusS);
+
+  if(ServoSerial.available()){
+    delay(100);
+    String dataResponse = ServoSerial.readStringUntil('\n');
+    if(dataResponse = "sensorDataReceived") {
+      
+    } else {
+
+    }
+  }
+
+  delay(400); //delay for 2Hz update rate
 }
 
 // Defining functions
