@@ -122,10 +122,18 @@ struct icmAngleStruct {
   float icm_roll_struct;
 };
 
+struct icmMagStruct {
+  float icm_magx_struct;
+  float icm_magy_struct;
+  float icm_magz_struct;
+};
+
 // Declaring methods
 void PCA9548ASelect(int);
 float getUltrasonicDistance(int);
 icmAngleStruct getICMAnglesDeg();
+icmMagStruct getICMMag();
+float getICMTemp();
 float inaGetVBusVolt();
 bool servoUARTValidation();
 initTofBoolStruct initTof();
@@ -277,7 +285,7 @@ void loop() {
   dtostrf(hc_frontDown_dmm, 7, 2, buffer7);
   hc_frontDown_dmmS = String(buffer7);
 
-  //reading icm angles
+  //reading icm angles pitch, roll
   icmAngleStruct icmAngleValues = getICMAnglesDeg();  //get ICM Angles in degrees as struct
   char buffer8[10];
   icm_pitch = icmAngleValues.icm_pitch_struct;
@@ -288,25 +296,31 @@ void loop() {
   dtostrf(icm_roll, 6, 2, buffer9);    //format to [xxx.xx](°)
   icm_rollS = String(buffer9);
 
-  // code for reading magX, magY, magZ of ICM
-  //
-  //
-  //
-  //
-  //
-  //
+  //reading icm mag x,y,z
+  icmMagStruct icmMagValues = getICMMag();  //get ICM Mag from function
+  char buffer10[10];
+  icm_magX = icmMagValues.icm_magx_struct;
+  dtostrf(icm_magX, 6, 2, buffer10);    //format to [xxx.xx]
+  icm_magXS = String(buffer10);
+  char buffer11[10];
+  icm_magY = icmMagValues.icm_magy_struct;
+  dtostrf(icm_magY, 6, 2, buffer11);  // format to [xxx.xx]
+  icm_magYS = String(buffer11);
+  char buffer12[10];
+  icm_magZ = icmMagValues.icm_magz_struct;
+  dtostrf(icm_magZ, 6, 2, buffer12);  // format to [xxx.xx]
+  icm_magZS = String(buffer12);
 
-  //code for reading temp of ICM
-  //
-  //
-  //
-  //
+  char buffer13[5];
+  icm_temp = getICMTemp();
+  dtostrf(icm_temp, 5, 2, buffer13);
+  icm_tempS = String(buffer13);
 
   //reading INA226 voltage vbus
-  char buffer10[5];
+  char buffer14[5];
   ina_vbus = inaGetVBusVolt();
-  dtostrf(ina_vbus, 4, 2, buffer10);  //format to [xx.xx](V)
-  ina_vbusS = String(buffer10);
+  dtostrf(ina_vbus, 4, 2, buffer14);  //format to [xx.xx](V)
+  ina_vbusS = String(buffer14);
 
   delay(100); //delay for 10Hz update rate
 }
@@ -479,6 +493,27 @@ float getUltrasonicDistance(int sensor){
   }
 
   return distanceMm;
+}
+
+icmMagStruct getICMMag(){
+  sensors_event_t accel;
+  sensors_event_t gyro;
+  sensors_event_t mag;
+  sensors_event_t temp;
+  ICM.getEvent(&accel, &gyro, &temp, &mag);
+
+  icmMagStruct magReturnStruct = {mag.magnetic.x, mag.magnetic.y, mag.magnetic.z};
+  return magReturnStruct;
+}
+
+float getICMTemp(){
+  sensors_event_t accel;
+  sensors_event_t gyro;
+  sensors_event_t mag;
+  sensors_event_t temp;
+  ICM.getEvent(&accel, &gyro, &temp, &mag);
+
+  return temp.temperature;
 }
 
 icmAngleStruct getICMAnglesDeg(){
