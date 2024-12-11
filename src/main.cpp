@@ -102,14 +102,14 @@ uint8_t tofFront_Address = 0x30;
 uint8_t tofBack_Address = 0x30;
 
 // Declaring variables
-int jetsonBootUpTime = 10000; // Waiting 10 seconds for the Jetson to boot up
+int jetsonBootUpTime = 1000; // Waiting 10 seconds for the Jetson to boot up
 
 // Defining instances
 HardwareSerial ServoSerial(2);  //UART to servo ESP32
 Adafruit_ICM20948 ICM;  //ICM20948 object
 INA226 INA(INA226_Address);
-VL53L0X tofFront;
-VL53L0X tofBack;
+Adafruit_VL53L0X tofFront = Adafruit_VL53L0X();
+Adafruit_VL53L0X tofBack = Adafruit_VL53L0X();
 
 // Defining structs
 struct initTofBoolStruct {
@@ -167,6 +167,8 @@ void setup() {
   pinMode(trigFrontDown, OUTPUT);
   pinMode(echoFrontDown, INPUT);
 
+  pinMode(buzzerPin, OUTPUT);
+
   //Start UART to servo ESP32
   try {
     ServoSerial.begin(servoESPUARTBaud, SERIAL_8N1, servoRx, servoTX);
@@ -181,7 +183,7 @@ void setup() {
   bool servoUARTworking = servoUARTValidation(); // is set to true, when UART to servo esp32 has been tested and validated
 
   if(servoUARTworking == false){  // continue, if UART comminication is working correctly
-    while(1);
+    //while(1);
   } else {
     Serial.println("SENS_COMU_I_001");
     ServoSerial.println("SENS_COMU_I_001");
@@ -190,29 +192,34 @@ void setup() {
 
 
 //beginning of sensor initialization
-  initTofBoolStruct tofBools = initTof();
-
-  if(tofBools.tof_front_valid == false){
-    Serial.println("SENS_INIT_W_004");
-    ServoSerial.println("SENS_INIT_W_004");
-    warningCount++;
-  } else {
-    Serial.println("SENS_INIT_I_003");
-    ServoSerial.println("SENS_INIT_I_003");
-  }
-  
-  if(tofBools.tof_back_valid == false){
-    Serial.println("SENS_INIT_W_005");
-    ServoSerial.println("SENS_INIT_W_005");
-    warningCount++;
-  } else {
-    Serial.println("SENS_INIT_I_004");
-    ServoSerial.println("SENS_INIT_I_004");
-  }
+  //initTofBoolStruct tofBools = initTof();
+//
+  //if(tofBools.tof_front_valid == false){
+  //  Serial.println("SENS_INIT_W_004");
+  //  ServoSerial.println("SENS_INIT_W_004");
+  //  warningCount++;
+  //} else {
+  //  Serial.println("SENS_INIT_I_003");
+  //  ServoSerial.println("SENS_INIT_I_003");
+  //  tof_front_bool = true;
+  //  tofFront.startRangeContinuous();
+  //}
+  //
+  //if(tofBools.tof_back_valid == false){
+  //  Serial.println("SENS_INIT_W_005");
+  //  ServoSerial.println("SENS_INIT_W_005");
+  //  warningCount++;
+  //} else {
+  //  Serial.println("SENS_INIT_I_004");
+  //  ServoSerial.println("SENS_INIT_I_004");
+  //  tof_back_bool = true;
+  //  tofBack.startRangeContinuous();
+  //}
 
   if(initINA226()){
     Serial.println("SENS_INIT_I_005");
     ServoSerial.println("SENS_INIT_I_005");
+    ina226_bool = true;
   } else {
     Serial.println("SENS_INIT_W_006");
     ServoSerial.println("SENS_INIT_W_006");
@@ -222,122 +229,250 @@ void setup() {
   if(initICM()){
     Serial.println("SENS_INIT_I_006");
     ServoSerial.println("SENS_INIT_I_006");
+    icm_bool = true;
   } else {
     Serial.println("SENS_INIT_W_007");
     ServoSerial.println("SENS_INIT_W_007");
     warningCount++;
   }
 
-  Serial.print("SENS_INIT_I_007," + errorCount + ',' + warningCount); //sending info code (indicates that initialization has finished)
+  tof_front_dmmS = "0000";
+  tof_back_dmmS = "0000";
+  hc_left_dmmS = "0000.00";
+  hc_right_dmmS = "0000.00";
+  hc_frontLeft_dmmS = "0000.00";
+  hc_frontRight_dmmS = "0000.00";
+  hc_frontDown_dmmS = "0000.00";
+  icm_pitchS = "000.00";
+  icm_rollS = "000.00";
+  icm_magXS = "000.00";
+  icm_magYS = "000.00";
+  icm_magZS = "000.00";
+  icm_tempS = "00.00";
+  ina_vbusS = "00.00";
+
+  // send data string to servo ESP32
+  //Serial.println("SENSOUT," + tof_front_dmmS + "," + tof_back_dmmS + "," + hc_left_dmmS + "," + hc_right_dmmS + "," + hc_frontLeft_dmmS + "," + hc_frontRight_dmmS + "," + hc_frontDown_dmmS + "," + icm_pitchS + "," + icm_rollS + "," + icm_magXS + "," + icm_magYS + "," + icm_magZS + "," + icm_tempS + "," + ina_vbusS);
+
+  Serial.println("SENS_INIT_I_007," + errorCount + ',' + warningCount); //sending info code (indicates that initialization has finished)
 }
 
 void loop() {
   // loop that sends sensor data over UART Serial to servo ESP
 
   //reading front tof sensor and format to [xxxx](mm)
-  if(tof_front_bool){   //read data only when initialized successfully
+  if(tof_front_bool && tofFront.isRangeComplete() && 1 == 2){   //read data only when initialized successfully
     PCA9548ASelect(tofFront_Address);
     char buffer1[5];
-    tof_front_dmm = tofFront.readRangeSingleMillimeters();
+    tof_front_dmm = tofFront.readRange();
     sprintf(buffer1, "%04d", tof_front_dmm);
     tof_front_dmmS = String(buffer1);
   } else{
     tof_front_dmmS = "9999";
   }
   //reading back tof sensor and format to [xxxx](mm)
-  if (tof_back_bool) { // read data only when initialized successfully
+  if (tof_back_bool && tofBack.isRangeComplete() && 1 == 2) { // read data only when initialized successfully
     PCA9548ASelect(tofBack_Address);
     char buffer2[5];
-    tof_back_dmm = tofBack.readRangeSingleMillimeters();
+    tof_back_dmm = tofBack.readRange();
     sprintf(buffer2, "%04d", tof_back_dmm);
     tof_back_dmmS = String(buffer2);
   } else {
     tof_back_dmmS = "9999";
   }
 
-  //reading hc_left ultrasonic sensor and format to [xxxx.xx]
-  char buffer3[10];
+  //reading hc_left ultrasonic sensor and format to [xxx.xx]
+  char buffer_hc_left[10];
   hc_left_dmm = getUltrasonicDistance(0);
-  dtostrf(hc_left_dmm, 7, 2, buffer3);   
-  hc_left_dmmS = String(buffer3);
+  dtostrf(hc_left_dmm, 6, 2, buffer_hc_left);
+  for (int i = 0; i < 6; i++){
+    if(buffer_hc_left[i] == ' '){
+      buffer_hc_left[i] = '0';
+    } else{
+      break;
+    }
+  }
+  hc_left_dmmS = String(buffer_hc_left);
 
-  //reading hc_right ultrasonic sensor and format to [xxxx.xx]
-  char buffer4[10];
+  //reading hc_right ultrasonic sensor and format to [xxx.xx]
+  char buffer_hc_right[10];
   hc_right_dmm = getUltrasonicDistance(1);
-  dtostrf(hc_right_dmm, 7, 2, buffer4);
-  hc_right_dmmS = String(buffer4);
+  dtostrf(hc_right_dmm, 6, 2, buffer_hc_right);
+  for (int i = 0; i < 6; i++){
+    if(buffer_hc_right[i] == ' '){
+      buffer_hc_right[i] = '0';
+    } else{
+      break;
+    }
+  }
+  hc_right_dmmS = String(buffer_hc_right);
 
-  //reading hc_frontLeft ultrasonic sensor and format to [xxxx.xx]
-  char buffer5[10];
+  //reading hc_frontLeft ultrasonic sensor and format to [xxx.xx]
+  char buffer_hc_frontLeft[10];
   hc_frontLeft_dmm = getUltrasonicDistance(2);
-  dtostrf(hc_frontLeft_dmm, 7, 2, buffer5);
-  hc_frontLeft_dmmS = String(buffer5);
+  dtostrf(hc_frontLeft_dmm, 6, 2, buffer_hc_frontLeft);
+  for (int i = 0; i < 6; i++){
+    if(buffer_hc_frontLeft[i] == ' '){
+      buffer_hc_frontLeft[i] = '0';
+    } else{
+      break;
+    }
+  }
+  hc_frontLeft_dmmS = String(buffer_hc_frontLeft);
 
-  //reading hc_frontRight ultrasonic sensor and format to [xxxx.xx]
-  char buffer6[10];
+  //reading hc_frontRight ultrasonic sensor and format to [xxx.xx]
+  char buffer_hc_frontRight[10];
   hc_frontRight_dmm = getUltrasonicDistance(3);
-  dtostrf(hc_frontRight_dmm, 7, 2, buffer6);
-  hc_frontRight_dmmS = String(buffer6);
+  dtostrf(hc_frontRight_dmm, 6, 2, buffer_hc_frontRight);
+  for (int i = 0; i < 6; i++){
+    if(buffer_hc_frontRight[i] == ' '){
+      buffer_hc_frontRight[i] = '0';
+    } else{
+      break;
+    }
+  }
+  hc_frontRight_dmmS = String(buffer_hc_frontRight);
 
-  //reading hc_frontDown ultrasonic sensor and format to [xxxx.xx]
-  char buffer7[10];
+  //reading hc_frontDown ultrasonic sensor and format to [xxx.xx]
+  char buffer_hc_frontDown[10];
   hc_frontDown_dmm = getUltrasonicDistance(4);
-  dtostrf(hc_frontDown_dmm, 7, 2, buffer7);
-  hc_frontDown_dmmS = String(buffer7);
+  dtostrf(hc_frontDown_dmm, 6, 2, buffer_hc_frontDown);
+  for (int i = 0; i < 6; i++){
+    if(buffer_hc_frontDown[i] == ' '){
+      buffer_hc_frontDown[i] = '0';
+    } else{
+      break;
+    }
+  }
+  hc_frontDown_dmmS = String(buffer_hc_frontDown);
 
-  //reading icm angles pitch, roll
-  icmAngleStruct icmAngleValues = getICMAnglesDeg();  //get ICM Angles in degrees as struct
-  char buffer8[10];
-  icm_pitch = icmAngleValues.icm_pitch_struct;
-  dtostrf(icm_pitch, 6, 2, buffer8);   //format to [xxx.xx](°)
-  icm_pitchS = String(buffer8);
-  char buffer9[10];
-  icm_roll = icmAngleValues.icm_roll_struct;
-  dtostrf(icm_roll, 6, 2, buffer9);    //format to [xxx.xx](°)
-  icm_rollS = String(buffer9);
+  if(icm_bool){
+    // reading icm angles pitch, roll
+    icmAngleStruct icmAngleValues =
+    getICMAnglesDeg(); // get ICM Angles in degrees as struct
+    char buffer_pitch[10];
+    icm_pitch = icmAngleValues.icm_pitch_struct;
+    dtostrf(icm_pitch, 7, 2, buffer_pitch); // format to [xxxx.xx](°)
+    for (int i = 0; i < 7; i++){
+      if(buffer_pitch[i] == ' '){
+        buffer_pitch[i] = '0';
+      } else{
+        break;
+      }
+    }
+    icm_pitchS = String(buffer_pitch);
+    char buffer_roll[10];
+    icm_roll = icmAngleValues.icm_roll_struct;
+    dtostrf(icm_roll, 7, 2, buffer_roll); // format to [xxxx.xx](°)
+    for (int i = 0; i < 7; i++){
+      if(buffer_roll[i] == ' '){
+        buffer_roll[i] = '0';
+      } else{
+        break;
+      }
+    }
+    icm_rollS = String(buffer_roll);
 
-  //reading icm mag x,y,z
-  icmMagStruct icmMagValues = getICMMag();  //get ICM Mag from function
-  char buffer10[10];
-  icm_magX = icmMagValues.icm_magx_struct;
-  dtostrf(icm_magX, 6, 2, buffer10);    //format to [xxx.xx]
-  icm_magXS = String(buffer10);
-  char buffer11[10];
-  icm_magY = icmMagValues.icm_magy_struct;
-  dtostrf(icm_magY, 6, 2, buffer11);  // format to [xxx.xx]
-  icm_magYS = String(buffer11);
-  char buffer12[10];
-  icm_magZ = icmMagValues.icm_magz_struct;
-  dtostrf(icm_magZ, 6, 2, buffer12);  // format to [xxx.xx]
-  icm_magZS = String(buffer12);
+    // reading icm mag x,y,z
+    icmMagStruct icmMagValues = getICMMag(); // get ICM Mag from function
+    char buffer_magX[10];
+    icm_magX = icmMagValues.icm_magx_struct;
+    dtostrf(icm_magX, 6, 2, buffer_magX); // format to [xxx.xx]
+    icm_magXS = String(buffer_magX);
+    for (int i = 0; i < 6; i++){
+      if(buffer_magX[i] == ' '){
+        buffer_magX[i] = '0';
+      } else{
+        break;
+      }
+    }
+    char buffer_magY[10];
+    icm_magY = icmMagValues.icm_magy_struct;
+    dtostrf(icm_magY, 6, 2, buffer_magY); // format to [xxx.xx]
+    for (int i = 0; i < 6; i++){
+      if(buffer_magY[i] == ' '){
+        buffer_magY[i] = '0';
+      } else{
+        break;
+      }
+    }
+    icm_magYS = String(buffer_magY);
+    char buffer_magZ[10];
+    icm_magZ = icmMagValues.icm_magz_struct;
+    dtostrf(icm_magZ, 6, 2, buffer_magZ); // format to [xxx.xx]
+    for (int i = 0; i < 6; i++){
+      if(buffer_magZ[i] == ' '){
+        buffer_magZ[i] = '0';
+      } else{
+        break;
+      }
+    }
+    icm_magZS = String(buffer_magZ);
 
-  char buffer13[5];
-  icm_temp = getICMTemp();
-  dtostrf(icm_temp, 5, 2, buffer13);
-  icm_tempS = String(buffer13);
+    char buffer_temp[5];
+    icm_temp = getICMTemp();
+    dtostrf(icm_temp, 5, 2, buffer_temp);  //format to [xx.xx]°C
+    for (int i = 0; i < 5; i++){
+      if (buffer_temp[i] == ' '){
+        buffer_temp[i] = '0';
+      } else{
+        break;
+      }
+    }
+      icm_tempS = String(buffer_temp);
+  } else {
+    icm_pitchS = "9999.99";
+    icm_rollS = "9999.99";
+    icm_magXS = "999.99";
+    icm_magYS = "999.99";
+    icm_magZS = "999.99";
+    icm_tempS = "99.99";
+  }
 
   //reading INA226 voltage vbus
-  char buffer14[5];
-  ina_vbus = inaGetVBusVolt();
-  dtostrf(ina_vbus, 4, 2, buffer14);  //format to [xx.xx](V)
-  ina_vbusS = String(buffer14);
+  if(ina226_bool){
+    char buffer_vbus[5];
+    float busVoltage = INA.getBusVoltage();
+    dtostrf(busVoltage, 5, 2, buffer_vbus); // format to [xx.xx](V)
+    for (int i = 0; i < 5; i++){
+      if(buffer_vbus[i] == ' '){
+        buffer_vbus[i] = '0';
+      } else{
+        break;
+      }
+    }
+      ina_vbusS = String(buffer_vbus);
+  } else {
+    ina_vbusS = "99.99";
+
+  }
+
+  tof_front_dmmS = "0000";
+  tof_back_dmmS = "0000";
+  //hc_left_dmmS = "0000.00";
+  //hc_right_dmmS = "0000.00";
+  //hc_frontLeft_dmmS = "0000.00";
+  //hc_frontRight_dmmS = "0000.00";
+  //hc_frontDown_dmmS = "0000.00";
+  //icm_pitchS = "000.00";
+  //icm_rollS = "000.00";
+  //icm_magXS = "000.00";
+  //icm_magYS = "000.00";
+  //icm_magZS = "000.00";
+  //icm_tempS = "00.00";
+  //ina_vbusS = "00.00";
 
   //send data string to servo ESP32
-  ServoSerial.println("SENSOUT," + tof_front_dmmS + "," + tof_back_dmmS + "," + hc_left_dmmS + "," +hc_right_dmmS + "," + hc_frontLeft_dmmS + 
+  Serial.println("SENSOUT," + tof_front_dmmS + "," + tof_back_dmmS + "," + hc_left_dmmS + "," +hc_right_dmmS + "," + hc_frontLeft_dmmS + 
                       "," + hc_frontRight_dmmS + "," + hc_frontDown_dmmS + "," + icm_pitchS + "," + icm_rollS + "," + icm_magXS + "," + 
                       icm_magYS + "," + icm_magZS + "," + icm_tempS + "," + ina_vbusS);
 
-  if(ServoSerial.available()){
-    delay(100);
-    String dataResponse = ServoSerial.readStringUntil('\n');
-    if(dataResponse = "sensorDataReceived") {
-      
-    } else {
+  //float busVoltage = INA.getBusVoltage();
+  //Serial.println(busVoltage, 3);
+  //Serial.println(ina_vbusS);
+  Serial.println(ina_vbusS);
 
-    }
-  }
-
-  delay(400); //delay for 2Hz update rate
+  delay(500); //delay for 2Hz update rate
 }
 
 // Defining functions
@@ -361,7 +496,7 @@ bool servoUARTValidation(){
     String receivedMesg = ServoSerial.readStringUntil('\n');
     
     if(receivedMesg == UARTValidAnsw){
-      Serial.println("SENS_COMU_I_002!");
+      Serial.println("SENS_COMU_I_002");
       validAnswer = true;
     } else {
       Serial.println("SENS_UART_E_003");
@@ -380,7 +515,7 @@ initTofBoolStruct initTof(){
   bool tofBack_Init = false;
 
   PCA9548ASelect(tofFront_Bus);   //select front L0X
-  if(!tofFront.init()) {
+  if(!tofFront.begin()) {
     tofFront_Init = false;
     tof_front_bool = false;
   } else {
@@ -389,7 +524,7 @@ initTofBoolStruct initTof(){
   }
 
   PCA9548ASelect(tofBack_Bus); // select back L0X
-  if (!tofBack.init()) {
+  if (!tofBack.begin()) {
     tofBack_Init = false;
     tof_back_bool = false;
   } else {
@@ -587,6 +722,7 @@ icmAngleStruct getICMAnglesDeg(){
 
 float inaGetVBusVolt(){
   PCA9548ASelect(INA226_Address);
+  INA.setMaxCurrentShunt(1, 0.1);
   float busVoltage = INA.getBusVoltage();
   return busVoltage;
 }
