@@ -353,22 +353,44 @@ void loop() {
     char buffer_pitch[10];
     icm_pitch = icmAngleValues.icm_pitch_struct;
     dtostrf(icm_pitch, 7, 2, buffer_pitch); // format to [xxxx.xx](°)
-    for (int i = 0; i < 7; i++){
-      if(buffer_pitch[i] == ' '){
-        buffer_pitch[i] = '0';
-      } else{
-        break;
+    if(icm_pitch >= 0){
+      for (int i = 0; i < 7; i++) {
+        if (buffer_pitch[i] == ' ') {
+          buffer_pitch[i] = '0';
+        } else {
+          break;
+        }
+      }
+    } else{
+      buffer_pitch[0] = '-';
+      for (int i = 1; i < 7; i++){
+        if (buffer_pitch[i] == ' ' || buffer_pitch[i] == '-') {
+          buffer_pitch[i] = '0';
+        } else {
+          break;
+        }
       }
     }
     icm_pitchS = String(buffer_pitch);
     char buffer_roll[10];
     icm_roll = icmAngleValues.icm_roll_struct;
     dtostrf(icm_roll, 7, 2, buffer_roll); // format to [xxxx.xx](°)
-    for (int i = 0; i < 7; i++){
-      if(buffer_roll[i] == ' '){
-        buffer_roll[i] = '0';
-      } else{
-        break;
+    if(icm_roll >= 0){
+      for (int i = 0; i < 7; i++) {
+        if (buffer_roll[i] == ' ') {
+          buffer_roll[i] = '0';
+        } else {
+          break;
+        }
+      }
+    } else{
+      buffer_roll[0] = '-';
+      for (int i = 1; i < 7; i++){
+        if (buffer_roll[i] == ' ' || buffer_roll[i] == '-') {
+          buffer_roll[i] = '0';
+        } else {
+          break;
+        }
       }
     }
     icm_rollS = String(buffer_roll);
@@ -467,10 +489,6 @@ void loop() {
                       "," + hc_frontRight_dmmS + "," + hc_frontDown_dmmS + "," + icm_pitchS + "," + icm_rollS + "," + icm_magXS + "," + 
                       icm_magYS + "," + icm_magZS + "," + icm_tempS + "," + ina_vbusS);
 
-  //float busVoltage = INA.getBusVoltage();
-  //Serial.println(busVoltage, 3);
-  //Serial.println(ina_vbusS);
-  Serial.println(ina_vbusS);
 
   delay(500); //delay for 2Hz update rate
 }
