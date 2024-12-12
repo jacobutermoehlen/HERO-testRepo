@@ -89,6 +89,7 @@ float P[2][2] = {{1, 0}, {0, 1}};          // Error covariance matrix
 float Q_angle = 0.001, Q_bias = 0.003;     // Process noise
 float R_measure = 0.03;                    // Measurement noise
 
+int buzzerVWarnSkip = 0;
 
 //PCA9548A busses
 int tofFront_Bus = 2;
@@ -177,6 +178,28 @@ void setup() {
     Serial.println("SENS_INIT_E_001");
     //ServoSerial.println("SENS_INIT_E_001");
     errorCount++;
+
+    for (int b = 0; b < 3; b++) {
+      for (int e = 0; e < 3; e++) {
+        digitalWrite(buzzerPin, HIGH);
+        delay(50);
+        digitalWrite(buzzerPin, LOW);
+        delay(100);
+        digitalWrite(buzzerPin, HIGH);
+        delay(50);
+        digitalWrite(buzzerPin, LOW);
+        delay(100);
+        digitalWrite(buzzerPin, HIGH);
+        delay(50);
+        digitalWrite(buzzerPin, LOW);
+        delay(150);
+        digitalWrite(buzzerPin, HIGH);
+        delay(150);
+        digitalWrite(buzzerPin, LOW);
+      }
+      delay(300);
+    }
+
     while(1);
   }
 
@@ -281,10 +304,10 @@ void loop() {
     tof_back_dmmS = "9999";
   }
 
-  //reading hc_left ultrasonic sensor and format to [xxx.xx]
+  //reading hc_left ultrasonic sensor and format to [xxxx.xx]
   char buffer_hc_left[10];
   hc_left_dmm = getUltrasonicDistance(0);
-  dtostrf(hc_left_dmm, 6, 2, buffer_hc_left);
+  dtostrf(hc_left_dmm, 7, 2, buffer_hc_left);
   for (int i = 0; i < 6; i++){
     if(buffer_hc_left[i] == ' '){
       buffer_hc_left[i] = '0';
@@ -294,10 +317,10 @@ void loop() {
   }
   hc_left_dmmS = String(buffer_hc_left);
 
-  //reading hc_right ultrasonic sensor and format to [xxx.xx]
+  //reading hc_right ultrasonic sensor and format to [xxxx.xx]
   char buffer_hc_right[10];
   hc_right_dmm = getUltrasonicDistance(1);
-  dtostrf(hc_right_dmm, 6, 2, buffer_hc_right);
+  dtostrf(hc_right_dmm, 7, 2, buffer_hc_right);
   for (int i = 0; i < 6; i++){
     if(buffer_hc_right[i] == ' '){
       buffer_hc_right[i] = '0';
@@ -307,10 +330,10 @@ void loop() {
   }
   hc_right_dmmS = String(buffer_hc_right);
 
-  //reading hc_frontLeft ultrasonic sensor and format to [xxx.xx]
+  //reading hc_frontLeft ultrasonic sensor and format to [xxxx.xx]
   char buffer_hc_frontLeft[10];
   hc_frontLeft_dmm = getUltrasonicDistance(2);
-  dtostrf(hc_frontLeft_dmm, 6, 2, buffer_hc_frontLeft);
+  dtostrf(hc_frontLeft_dmm, 7, 2, buffer_hc_frontLeft);
   for (int i = 0; i < 6; i++){
     if(buffer_hc_frontLeft[i] == ' '){
       buffer_hc_frontLeft[i] = '0';
@@ -320,10 +343,10 @@ void loop() {
   }
   hc_frontLeft_dmmS = String(buffer_hc_frontLeft);
 
-  //reading hc_frontRight ultrasonic sensor and format to [xxx.xx]
+  //reading hc_frontRight ultrasonic sensor and format to [xxxx.xx]
   char buffer_hc_frontRight[10];
   hc_frontRight_dmm = getUltrasonicDistance(3);
-  dtostrf(hc_frontRight_dmm, 6, 2, buffer_hc_frontRight);
+  dtostrf(hc_frontRight_dmm, 7, 2, buffer_hc_frontRight);
   for (int i = 0; i < 6; i++){
     if(buffer_hc_frontRight[i] == ' '){
       buffer_hc_frontRight[i] = '0';
@@ -333,10 +356,10 @@ void loop() {
   }
   hc_frontRight_dmmS = String(buffer_hc_frontRight);
 
-  //reading hc_frontDown ultrasonic sensor and format to [xxx.xx]
+  //reading hc_frontDown ultrasonic sensor and format to [xxxx.xx]
   char buffer_hc_frontDown[10];
   hc_frontDown_dmm = getUltrasonicDistance(4);
-  dtostrf(hc_frontDown_dmm, 6, 2, buffer_hc_frontDown);
+  dtostrf(hc_frontDown_dmm, 7, 2, buffer_hc_frontDown);
   for (int i = 0; i < 6; i++){
     if(buffer_hc_frontDown[i] == ' '){
       buffer_hc_frontDown[i] = '0';
@@ -469,8 +492,8 @@ void loop() {
 
   }
 
-  tof_front_dmmS = "0000";
-  tof_back_dmmS = "0000";
+  tof_front_dmmS = "9999";
+  tof_back_dmmS = "9999";
   //hc_left_dmmS = "0000.00";
   //hc_right_dmmS = "0000.00";
   //hc_frontLeft_dmmS = "0000.00";
@@ -484,13 +507,24 @@ void loop() {
   //icm_tempS = "00.00";
   //ina_vbusS = "00.00";
 
-  //send data string to servo ESP32
-  Serial.println("SENSOUT," + tof_front_dmmS + "," + tof_back_dmmS + "," + hc_left_dmmS + "," +hc_right_dmmS + "," + hc_frontLeft_dmmS + 
-                      "," + hc_frontRight_dmmS + "," + hc_frontDown_dmmS + "," + icm_pitchS + "," + icm_rollS + "," + icm_magXS + "," + 
-                      icm_magYS + "," + icm_magZS + "," + icm_tempS + "," + ina_vbusS);
+  //accustic warning if battery below 22.6V
+  if(ina_vbus <= 22.6 && buzzerVWarnSkip % 2 == 0){
+    digitalWrite(buzzerPin, HIGH);
+  }
+  if (ina_vbus <= 22.6 && buzzerVWarnSkip % 4 == 0){
+    digitalWrite(buzzerPin, LOW);
+  }
 
+    // send data string to servo ESP32
+    Serial.println("SENSOUT," + tof_front_dmmS + "," + tof_back_dmmS + "," +
+                   hc_left_dmmS + "," + hc_right_dmmS + "," +
+                   hc_frontLeft_dmmS + "," + hc_frontRight_dmmS + "," +
+                   hc_frontDown_dmmS + "," + icm_pitchS + "," + icm_rollS +
+                   "," + icm_magXS + "," + icm_magYS + "," + icm_magZS + "," +
+                   icm_tempS + "," + ina_vbusS);
 
-  delay(500); //delay for 2Hz update rate
+  buzzerVWarnSkip += 1;
+  delay(500); //delay for 10Hz update rate
 }
 
 // Defining functions
